@@ -1,0 +1,100 @@
+# Sample Lovelace dashboard / view for Comelit ICONA Bridge companion.
+#
+# Prerequisites:
+#   1. Add-on "Comelit ICONA Bridge" running
+#   2. HACS integration "Comelit ICONA Bridge Camera" configured
+#   3. Optional PN-32 hourly still: packages/hourly_klingel_preview.yaml
+#      (or the matching blueprint) — see docs/hourly-preview.md
+#
+# Import options:
+#   A) HA → Settings → Dashboards → Add dashboard → take control →
+#      Raw configuration editor → paste the `views:` block (or whole file)
+#   B) Existing dashboard → Edit → ⋮ → Raw configuration editor →
+#      append the view under `views:`
+#
+# Entity IDs match the companion defaults (German entity names).
+# Adjust if you renamed entities.
+#
+# PN-32: camera_view is `auto` (still / snapshot behaviour), NOT `live`.
+# Live would keep ICONA video (and outdoor LEDs) on while the view is open.
+# Use Start / Stop tiles for on-demand live; hourly package refreshes a media still.
+
+title: Küchen-Panel (ICONA Beispiel)
+views:
+  - title: Klingel
+    path: klingel
+    icon: mdi:doorbell-video
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Klingelkamera
+            heading_style: title
+
+          # Still by default (auto). Do not set camera_view: live here —
+          # live keeps ICONA video / outdoor LEDs on while the view is open.
+          - type: picture-entity
+            entity: camera.comelit_icona_bridge_klingelkamera
+            camera_view: auto
+            name: Klingelkamera
+            show_state: false
+            show_name: true
+
+          # Optional: last hourly still from packages/hourly_klingel_preview.yaml
+          # (file: /media/comelit_icona/klingel_preview.jpg). Uncomment if your
+          # HA version resolves media-source images on picture cards:
+          # - type: picture
+          #   image: media-source://media_source/local/comelit_icona/klingel_preview.jpg
+          #   alt_text: Stündliche Klingel-Vorschau
+          #   tap_action:
+          #     action: none
+
+          - type: horizontal-stack
+            cards:
+              - type: button
+                entity: button.comelit_icona_bridge_start_klingelvideo
+                name: Start
+                icon: mdi:play
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.comelit_icona_bridge_start_klingelvideo
+              - type: button
+                entity: button.comelit_icona_bridge_stop_klingelvideo
+                name: Stop
+                icon: mdi:stop
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.comelit_icona_bridge_stop_klingelvideo
+              - type: button
+                entity: button.comelit_icona_bridge_klingel_annehmen_sprechen
+                name: Sprechen
+                icon: mdi:microphone
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.comelit_icona_bridge_klingel_annehmen_sprechen
+              - type: button
+                entity: button.comelit_icona_bridge_tur_offnen
+                name: Tür
+                icon: mdi:door-open
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.comelit_icona_bridge_tur_offnen
+
+          - type: entities
+            entities:
+              - entity: binary_sensor.comelit_icona_bridge_klingelt
+                name: Klingelt
+              - entity: binary_sensor.comelit_icona_bridge_icona_verbindung
+                name: ICONA Verbindung
+              - entity: event.comelit_icona_bridge_klingel
+                name: Klingel-Event

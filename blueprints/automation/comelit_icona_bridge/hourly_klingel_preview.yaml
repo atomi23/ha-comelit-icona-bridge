@@ -1,0 +1,82 @@
+# Blueprint: hourly Klingel still preview with short outdoor-LED window (PN-32)
+#
+# Install:
+#   Copy to config/blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml
+#   → Settings → Automations → Create automation → use this blueprint
+#   Or import from the GitHub raw URL of this file.
+#
+# Expect a brief outdoor LED blink once per hour while start→snapshot→stop runs.
+
+blueprint:
+  name: ICONA hourly Klingel preview
+  description: >-
+    Every hour: Start Klingelvideo → wait → camera.snapshot to media → Stop.
+    Keeps the outdoor LED-on window short (brief blink expected). Use Lovelace
+    picture-entity with camera_view auto (not live) so the dashboard does not
+    leave video/LEDs on.
+  domain: automation
+  source_url: https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml
+  input:
+    start_button:
+      name: Start Klingelvideo button
+      selector:
+        entity:
+          domain: button
+      default: button.comelit_icona_bridge_start_klingelvideo
+    stop_button:
+      name: Stop Klingelvideo button
+      selector:
+        entity:
+          domain: button
+      default: button.comelit_icona_bridge_stop_klingelvideo
+    camera_entity:
+      name: Klingelkamera
+      selector:
+        entity:
+          domain: camera
+      default: camera.comelit_icona_bridge_klingelkamera
+    snapshot_path:
+      name: Snapshot filename (under /media)
+      default: /media/comelit_icona/klingel_preview.jpg
+      selector:
+        text:
+    settle_seconds:
+      name: Seconds to wait after start (before snapshot)
+      description: Keep low; raise only if snapshots are black/empty.
+      default: 4
+      selector:
+        number:
+          min: 2
+          max: 15
+          step: 1
+          unit_of_measurement: s
+    hour_pattern:
+      name: Hour pattern
+      description: time_pattern hours value (e.g. /1 = every hour)
+      default: "/1"
+      selector:
+        text:
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: time_pattern
+    hours: !input hour_pattern
+    minutes: "0"
+    seconds: "0"
+
+action:
+  - service: button.press
+    target:
+      entity_id: !input start_button
+  - delay:
+      seconds: !input settle_seconds
+  - service: camera.snapshot
+    target:
+      entity_id: !input camera_entity
+    data:
+      filename: !input snapshot_path
+  - service: button.press
+    target:
+      entity_id: !input stop_button

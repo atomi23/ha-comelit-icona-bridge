@@ -1,0 +1,15 @@
+Comelit ICONA Bridge
+Copyright 2026 atomi23
+
+This product includes software developed from / adapted from:
+
+  comelit-man (https://github.com/mnestrud/comelit-man)
+  Copyright 2026 Antonio Ibáñez
+  Copyright 2026 Michael Nestrud
+  Licensed under the Apache License, Version 2.0
+
+  Protocol knowledge also derived from community work including:
+  - nicolas-fricke/ha-component-comelit-intercom
+  - madchicken/comelit-client
+  - antoiba86/hass-comelit-intercom-local
+  - simllll/hass-comelit-icona

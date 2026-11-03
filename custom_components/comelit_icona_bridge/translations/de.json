@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Comelit ICONA Bridge Kamera",
+        "description": "Suche nach dem laufenden ICONA-Bridge-Add-on auf diesem Home Assistant…"
+      },
+      "confirm": {
+        "title": "Add-on gefunden",
+        "description": "Control-API unter `{api_url}` erkannt. Defaults übernehmen oder anpassen, dann speichern.",
+        "data": {
+          "api_url": "Control-API Basis-URL",
+          "rtsp_url": "RTSP-URL"
+        },
+        "data_description": {
+          "api_url": "Meist http://homeassistant.local:8099 oder http://<ha-ip>:8099",
+          "rtsp_url": "Meist rtsp://127.0.0.1:8557/intercom auf demselben HA-Host"
+        }
+      },
+      "manual": {
+        "title": "Comelit ICONA Bridge Kamera",
+        "description": "Add-on nicht automatisch gefunden. **Comelit ICONA Bridge** starten, dann URLs eintragen (Defaults passen für die meisten HA-OS-Installationen).",
+        "data": {
+          "api_url": "Control-API Basis-URL",
+          "rtsp_url": "RTSP-URL"
+        },
+        "data_description": {
+          "api_url": "http://homeassistant.local:8099 oder http://<ha-lan-ip>:8099",
+          "rtsp_url": "rtsp://127.0.0.1:8557/intercom (gleicher Host) oder rtsp://<ha-ip>:8557/intercom"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Control-API des Add-ons nicht erreichbar. Läuft das Add-on und stimmt die URL?"
+    },
+    "abort": {
+      "already_configured": "Bereits konfiguriert"
+    }
+  }
+}

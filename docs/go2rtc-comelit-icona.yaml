@@ -1,0 +1,12 @@
+# One-paste go2rtc stream for Comelit ICONA Bridge
+# Addon publishes RTSP on the HA host (host_network): :8557/intercom
+#
+# AlexxIT go2rtc add-on → Configuration → paste under `streams:`
+# or merge into go2rtc.yaml and restart go2rtc.
+#
+# Web UI: http://<ha-ip>:1984  → stream name `comelit_icona`
+# Lovelace: camera entity from companion, or WebRTC card on this stream.
+
+streams:
+  comelit_icona:
+    - rtsp://127.0.0.1:8557/intercom

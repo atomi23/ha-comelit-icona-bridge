@@ -1,0 +1,53 @@
+name: Comelit ICONA Bridge
+version: 0.3.1
+slug: comelit_icona_bridge
+description: >-
+  Local ICONA session bridge for Comelit WiFi video door panels (6741W/6701W
+  family). Authenticates to TCP :64100 and republishes the outdoor camera as
+  RTSP on the HA host (default :8557/intercom) for Lovelace / go2rtc.
+url: https://github.com/atomi23/ha-comelit-icona-bridge
+arch:
+  - aarch64
+  - amd64
+  - armv7
+startup: services
+boot: auto
+init: false
+host_network: true
+hassio_api: false
+homeassistant_api: false
+ports:
+  8557/tcp: 8557
+  8099/tcp: 8099
+ports_description:
+  8557/tcp: Local RTSP republish of ICONA doorbell video
+  8099/tcp: HTTP control API (/status, /start, /stop)
+map:
+  - ssl:ro
+options:
+  host: "192.168.1.111"
+  port: 64100
+  http_port: 8080
+  token: ""
+  password: ""
+  rtsp_port: 8557
+  api_port: 8099
+  bind_host: "0.0.0.0"
+  log_level: info
+  auto_start_on_ring: true
+  enable_vip_listener: true
+  model: "6741W"
+schema:
+  host: str
+  port: port
+  http_port: port
+  token: password
+  password: "password?"
+  rtsp_port: port
+  api_port: port
+  bind_host: str
+  log_level: list(debug|info|warning|error)
+  auto_start_on_ring: bool
+  enable_vip_listener: bool
+  model: str
+# No prebuilt `image:` — Supervisor builds from this Dockerfile (local add-on repo).

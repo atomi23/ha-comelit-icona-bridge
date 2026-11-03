@@ -1,0 +1,72 @@
+# Home Assistant package: hourly outdoor-camera preview without lasting LEDs (PN-32)
+#
+# Install (packages:):
+#   1. Copy this file to config/packages/hourly_klingel_preview.yaml
+#   2. In configuration.yaml ensure:
+#        homeassistant:
+#          packages: !include_dir_named packages
+#   3. Create media folder once (File editor / SSH):
+#        mkdir -p /media/comelit_icona
+#   4. Check Configuration → Restart (or Developer tools → YAML → Check + Reload automations)
+#
+# Or use the blueprint: blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml
+#
+# Behaviour:
+#   Every hour: press Start Klingelvideo → wait a few seconds for RTP → camera.snapshot
+#   to /media → press Stop Klingelvideo. Outdoor IR/white LEDs turn on only for that
+#   short window (expect a brief blink each hour), then go off with /stop.
+#
+# Adjust entity_ids if you renamed the companion entities.
+
+automation:
+  - id: comelit_icona_hourly_klingel_preview
+    alias: ICONA hourly Klingel preview (short LED window)
+    description: >-
+      PN-32: refresh a still preview once per hour. Starts ICONA video only long
+      enough to grab one frame, then stops — outdoor LEDs should blink briefly,
+      not stay on. Lovelace should use picture-entity camera_view auto (not live).
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: time_pattern
+        hours: "/1"
+        minutes: "0"
+        seconds: "0"
+    condition: []
+    action:
+      # 1) Start outbound video (panel outdoor LEDs may turn on here)
+      - service: button.press
+        target:
+          entity_id: button.comelit_icona_bridge_start_klingelvideo
+
+      # 2) Wait for RTSP / first frames (keep as short as practical; raise if snapshots are black)
+      - delay:
+          seconds: 4
+
+      # 3) Still to local media (shown by Lovelace image / media browser)
+      - service: camera.snapshot
+        target:
+          entity_id: camera.comelit_icona_bridge_klingelkamera
+        data:
+          filename: /media/comelit_icona/klingel_preview.jpg
+
+      # Optional go2rtc alternative (uncomment if you prefer a go2rtc JPEG grab):
+      # - service: rest_command.comelit_icona_go2rtc_frame
+      #   # or: shell_command / curl http://127.0.0.1:1984/api/frame.jpeg?src=comelit_icona
+      #   # → write to /media/comelit_icona/klingel_preview.jpg
+
+      # 4) Stop video ASAP so outdoor LEDs turn off
+      - service: button.press
+        target:
+          entity_id: button.comelit_icona_bridge_stop_klingelvideo
+
+# Optional helpers (uncomment if you want a tunable wait from the UI):
+# input_number:
+#   comelit_icona_preview_settle_seconds:
+#     name: ICONA preview settle seconds
+#     min: 2
+#     max: 15
+#     step: 1
+#     initial: 4
+#     mode: box
+#     unit_of_measurement: s

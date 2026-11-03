@@ -1,0 +1,13 @@
+{
+  "domain": "comelit_icona_bridge",
+  "name": "Comelit ICONA Bridge Camera",
+  "codeowners": ["@atomi23"],
+  "config_flow": true,
+  "dependencies": ["stream"],
+  "documentation": "https://github.com/atomi23/ha-comelit-icona-bridge",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/atomi23/ha-comelit-icona-bridge/issues",
+  "requirements": [],
+  "version": "0.3.1"
+}
+
