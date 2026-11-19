@@ -489,7 +489,7 @@ def build_app(svc: IconaBridgeService) -> web.Application:
     async def door(request: web.Request) -> web.Response:
         try:
             name = request.query.get("name") or request.query.get("door")
-            if request.can_read and request.content_type == "application/json":
+            if request.can_read_body and request.content_type == "application/json":
                 body = await request.json()
                 name = body.get("name") or body.get("door") or name
             result = await svc.open_named_door(name)
