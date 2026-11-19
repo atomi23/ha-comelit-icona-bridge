@@ -8,6 +8,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/atomi23/ha-comelit-icona-bridge/issues",
   "requirements": [],
-  "version": "0.3.1"
+  "version": "0.3.2"
 }
 
