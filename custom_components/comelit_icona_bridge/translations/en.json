@@ -13,7 +13,7 @@
           "rtsp_url": "RTSP URL"
         },
         "data_description": {
-          "api_url": "Usually http://homeassistant.local:8099 or http://<ha-ip>:8099",
+          "api_url": "Usually http://homeassistant.local:8099 or http://HA-IP:8099",
           "rtsp_url": "Usually rtsp://127.0.0.1:8557/intercom on the same HA host"
         }
       },
@@ -25,8 +25,8 @@
           "rtsp_url": "RTSP URL"
         },
         "data_description": {
-          "api_url": "http://homeassistant.local:8099 or http://<ha-lan-ip>:8099",
-          "rtsp_url": "rtsp://127.0.0.1:8557/intercom (same machine) or rtsp://<ha-ip>:8557/intercom"
+          "api_url": "http://homeassistant.local:8099 or http://HA-LAN-IP:8099",
+          "rtsp_url": "rtsp://127.0.0.1:8557/intercom (same machine) or rtsp://HA-IP:8557/intercom"
         }
       }
     },
