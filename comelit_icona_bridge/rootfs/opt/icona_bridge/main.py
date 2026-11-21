@@ -173,15 +173,19 @@ class IconaBridgeService:
         try:
             await authenticate(client, token)
             config = await get_device_config(client)
+            self.client = client
+            self.device_config = config
+            client.set_disconnect_callback(self._on_disconnect)
+            if self.enable_vip_listener:
+                await self._start_vip_listener()
         except BaseException:
+            self.client = None
+            self._vip = None
             with contextlib.suppress(Exception):
                 await client.disconnect()
             raise
-        self.client = client
-        self.device_config = config
         self._connected = True
         self.last_error = None
-        client.set_disconnect_callback(self._on_disconnect)
         LOG.info(
             "ICONA connected host=%s model=%s apt=%s entrance=%s doors=%d",
             self.host,
@@ -190,8 +194,6 @@ class IconaBridgeService:
             config.caller_address,
             len(config.doors),
         )
-        if self.enable_vip_listener:
-            await self._start_vip_listener()
 
     def _on_disconnect(self) -> None:
         LOG.warning("ICONA TCP dropped unexpectedly")
