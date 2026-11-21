@@ -96,6 +96,7 @@ class IconaBridgeService:
         self._vip: VipEventListener | None = None
         self._ctpp_init_ts: int = 0
         self._session_lock = asyncio.Lock()
+        self._connect_lock = asyncio.Lock()
         self._connected = False
         self.last_error: str | None = None
         self._events: deque[dict[str, Any]] = deque(maxlen=50)
@@ -277,21 +278,23 @@ class IconaBridgeService:
         LOG.info("Local RTSP listening on %s", self.rtsp_url)
 
     async def _ensure_connected(self) -> None:
-        needs_connect = (
-            self.client is None
-            or self.device_config is None
-            or not getattr(self.client, "connected", False)
-        )
-        if needs_connect:
-            if self.client is not None:
-                with contextlib.suppress(Exception):
-                    if self._vip is not None:
-                        await self._vip.stop()
-                    await self.client.disconnect()
-                self.client = None
-                self._vip = None
-                self._connected = False
-            await self.connect()
+        # /door does not hold _session_lock; serialize connects separately.
+        async with self._connect_lock:
+            needs_connect = (
+                self.client is None
+                or self.device_config is None
+                or not getattr(self.client, "connected", False)
+            )
+            if needs_connect:
+                if self.client is not None:
+                    with contextlib.suppress(Exception):
+                        if self._vip is not None:
+                            await self._vip.stop()
+                        await self.client.disconnect()
+                    self.client = None
+                    self._vip = None
+                    self._connected = False
+                await self.connect()
 
     async def reconnect_loop(self) -> None:
         """Reconnect after the panel drops TCP so ring events keep arriving."""
