@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
+from typing import Any
 
 import aiohttp
 from homeassistant.components.camera import Camera, CameraEntityFeature
@@ -54,11 +55,11 @@ class IconaBridgeCamera(Camera):
     def _api(self) -> str:
         return self._entry.data[CONF_API_URL].rstrip("/")
 
-    async def async_refresh_providers(self, *, write_state: bool = True) -> None:
+    async def async_refresh_providers(self, *args: Any, **kwargs: Any) -> None:
         """Look up WebRTC providers without starting ICONA video."""
         token = _PROBING_PROVIDERS.set(True)
         try:
-            await super().async_refresh_providers(write_state=write_state)
+            await super().async_refresh_providers(*args, **kwargs)
         finally:
             _PROBING_PROVIDERS.reset(token)
 
