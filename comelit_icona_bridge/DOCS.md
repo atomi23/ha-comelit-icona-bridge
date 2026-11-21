@@ -68,6 +68,7 @@ Full snippet file in the repo: `docs/go2rtc-comelit-icona.yaml`.
 ## Ring / talk / camera
 
 1. Add-on starts → auth + VIP listener (`vip_listener: true` in `/status`)
+   - If the panel drops TCP (sleep, Wi-Fi, reboot), the add-on reconnects on its own (backoff 5 s → 5 min) and restarts the VIP listener; `/events` shows `reconnected`
 2. Doorbell ring → `/events` shows `ring`; companion `event.*klingel` + `binary_sensor.*klingelt`
 3. Live camera → `/start` or auto-on-ring → `rtsp://…:8557/intercom` (go2rtc / Lovelace)
 4. Talk → `/answer` after ring (browser mic needs HTTPS origin — see `docs/https-mic.md`); RX audio works over go2rtc WebRTC

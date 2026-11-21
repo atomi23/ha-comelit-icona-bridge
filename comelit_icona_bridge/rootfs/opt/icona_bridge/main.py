@@ -39,6 +39,9 @@ from icona.vip_listener import VipEventListener
 
 LOG = logging.getLogger("icona_bridge")
 
+RECONNECT_MIN_DELAY = 5.0
+RECONNECT_MAX_DELAY = 300.0
+
 OPTIONS_PATHS = (
     Path("/data/options.json"),
     Path(os.environ.get("ICONA_OPTIONS", "")),
@@ -107,6 +110,10 @@ class IconaBridgeService:
         return f"rtsp://{host}:{self.rtsp_port}/intercom"
 
     @property
+    def connected(self) -> bool:
+        return self._connected and bool(self.client and self.client.connected)
+
+    @property
     def status(self) -> dict[str, Any]:
         media = {}
         if self.session and self.session.rtp_receiver:
@@ -119,7 +126,7 @@ class IconaBridgeService:
             "host": self.host,
             "port": self.port,
             "model": self.model,
-            "connected": self._connected and bool(self.client and self.client.connected),
+            "connected": self.connected,
             "vip_listener": self._vip is not None,
             "video_active": self.session is not None and bool(getattr(self.session, "active", False)),
             "ringing": self._ringing,
@@ -163,8 +170,13 @@ class IconaBridgeService:
         token = await self.resolve_token()
         client = IconaBridgeClient(self.host, self.port)
         await client.connect()
-        await authenticate(client, token)
-        config = await get_device_config(client)
+        try:
+            await authenticate(client, token)
+            config = await get_device_config(client)
+        except BaseException:
+            with contextlib.suppress(Exception):
+                await client.disconnect()
+            raise
         self.client = client
         self.device_config = config
         self._connected = True
@@ -184,6 +196,8 @@ class IconaBridgeService:
     def _on_disconnect(self) -> None:
         LOG.warning("ICONA TCP dropped unexpectedly")
         self._connected = False
+        if self._vip is not None:
+            asyncio.get_running_loop().create_task(self._vip.stop())
         self._vip = None
         self.last_error = "tcp_disconnected"
 
@@ -276,6 +290,32 @@ class IconaBridgeService:
                 self._vip = None
                 self._connected = False
             await self.connect()
+
+    async def reconnect_loop(self) -> None:
+        """Reconnect after the panel drops TCP so ring events keep arriving."""
+        delay = RECONNECT_MIN_DELAY
+        while True:
+            await asyncio.sleep(delay)
+            if self.connected:
+                delay = RECONNECT_MIN_DELAY
+                continue
+            async with self._session_lock:
+                if self.connected:
+                    continue
+                if self.session is not None:
+                    with contextlib.suppress(Exception):
+                        await self.session.stop()
+                    self.session = None
+                LOG.info("Reconnecting to ICONA panel %s:%s", self.host, self.port)
+                try:
+                    await self._ensure_connected()
+                except Exception as exc:  # noqa: BLE001
+                    self.last_error = f"reconnect: {exc}"
+                    delay = min(delay * 2, RECONNECT_MAX_DELAY)
+                    LOG.warning("ICONA reconnect failed, retry in %.0fs: %s", delay, exc)
+                    continue
+            self._record_event("reconnected")
+            delay = RECONNECT_MIN_DELAY
 
     async def start_video(self) -> dict[str, Any]:
         """Outbound live view (HA-initiated, no doorbell ring required)."""
@@ -552,7 +592,12 @@ async def amain() -> None:
         with contextlib_suppress():
             loop.add_signal_handler(sig, _stop)
 
+    reconnect_task = asyncio.create_task(svc.reconnect_loop())
+
     await stop_event.wait()
+    reconnect_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await reconnect_task
     await svc.shutdown()
     await runner.cleanup()
 
