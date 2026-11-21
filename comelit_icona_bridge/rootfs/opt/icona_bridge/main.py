@@ -97,6 +97,7 @@ class IconaBridgeService:
         self._ctpp_init_ts: int = 0
         self._session_lock = asyncio.Lock()
         self._connect_lock = asyncio.Lock()
+        self.closing = False
         self._connected = False
         self.last_error: str | None = None
         self._events: deque[dict[str, Any]] = deque(maxlen=50)
@@ -299,13 +300,13 @@ class IconaBridgeService:
     async def reconnect_loop(self) -> None:
         """Reconnect after the panel drops TCP so ring events keep arriving."""
         delay = RECONNECT_MIN_DELAY
-        while True:
+        while not self.closing:
             await asyncio.sleep(delay)
             if self.connected:
                 delay = RECONNECT_MIN_DELAY
                 continue
             async with self._session_lock:
-                if self.connected:
+                if self.closing or self.connected:
                     continue
                 if self.session is not None:
                     with contextlib.suppress(Exception):
@@ -600,9 +601,10 @@ async def amain() -> None:
     reconnect_task = asyncio.create_task(svc.reconnect_loop())
 
     await stop_event.wait()
+    # Session cleanup swallows cancellation, so also flag and bound the wait.
+    svc.closing = True
     reconnect_task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await reconnect_task
+    await asyncio.wait({reconnect_task}, timeout=5)
     await svc.shutdown()
     await runner.cleanup()
 
