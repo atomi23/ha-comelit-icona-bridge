@@ -30,7 +30,7 @@ async def async_setup_entry(
 
     session = async_get_clientsession(hass)
     api = entry.data[CONF_API_URL].rstrip("/")
-    last_seen: dict[str, float] = {"ts": 0.0}
+    last_seen: dict[str, float | None] = {"ts": None}
 
     async def _poll(_now=None) -> None:
         try:
@@ -40,7 +40,11 @@ async def async_setup_entry(
                 payload = await resp.json()
         except Exception:  # noqa: BLE001
             return
-        for evt in payload.get("events") or []:
+        events = payload.get("events") or []
+        if last_seen["ts"] is None:
+            last_seen["ts"] = max((float(evt.get("ts") or 0) for evt in events), default=0.0)
+            return
+        for evt in events:
             ts = float(evt.get("ts") or 0)
             if ts <= last_seen["ts"]:
                 continue
