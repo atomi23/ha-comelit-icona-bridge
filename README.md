@@ -1,4 +1,6 @@
-﻿# ha-comelit-icona-bridge
+English | [Deutsch](README.de.md)
+
+# ha-comelit-icona-bridge
 
 Home Assistant **add-on** that opens a local **ICONA / VIPER** session to a Comelit WiFi video door panel (**6741W** / 6701W family, TCP **64100**) and republishes the outdoor doorbell camera as **RTSP on the HA host** (`rtsp://<ha-ip>:8557/intercom`) for Lovelace / go2rtc / Generic Camera.
 
@@ -94,6 +96,13 @@ homeassistant:
 ```
 
 Copy [`packages/hourly_klingel_preview.yaml`](packages/hourly_klingel_preview.yaml) into `config/packages/`, ensure `/media/comelit_icona/` exists, reload automations. Or import the blueprint from [`blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml`](blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml). Expect a **brief outdoor LED blink** once per hour during start→snapshot→stop.
+
+## Where to buy
+
+- [Search Amazon.de for Comelit 6741W (Prime filter)](https://www.amazon.de/s?tag=atomi23-21&k=Comelit+6741W&rh=p_85%3A20943776031)\*
+- [Search Amazon.de for Comelit 6701W (Prime filter)](https://www.amazon.de/s?tag=atomi23-21&k=Comelit+6701W&rh=p_85%3A20943776031)\*
+
+\*As an Amazon Associate I earn from qualifying purchases. Links marked * are affiliate/advertising links.
 
 ## Attribution
 

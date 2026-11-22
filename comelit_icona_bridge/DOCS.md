@@ -1,5 +1,7 @@
 ﻿# Comelit ICONA Bridge (Add-on)
 
+[Deutsche Anleitung](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/README.de.md)
+
 Local-only bridge for Comelit **6741W** / 6701W-family panels: ICONA TCP `:64100` → RTSP on the HA host (`:8557/intercom`) plus HTTP control on `:8099`.
 
 ## Quickstart (3 steps)
