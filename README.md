@@ -14,7 +14,7 @@ No cloud auth bypass. No Frida. No LAN packet-capture required — the add-on sp
 
 2. **Set host + token** — Options: panel IP (`host`) and the 32-hex ICONA `token`. Leave **`password` empty** (optional; only useful on models with a web Backup UI — not on typical 6741W Installer/Hausverwalter). Start the add-on. Check `http://<ha-ip>:8099/status`.
 
-3. **Install the HACS companion** — HACS → Integrations → ⋮ → Custom repositories → same GitHub URL, category **Integration** → download **Comelit ICONA Bridge Camera** → restart HA → add the integration. URLs are auto-detected when the add-on is running (`rtsp://127.0.0.1:8557/intercom`, `http://homeassistant.local:8099`).
+3. **Install the HACS companion** — HACS → Integrations → ⋮ → Custom repositories → same GitHub URL, category **Integration** → download **Comelit ICONA Bridge Camera** → restart HA → add the integration. Discovery probes the API only on port `8099`. The suggested RTSP URL uses the discovered host (recognized local aliases use `127.0.0.1`) and the valid `rtsp_port` reported by `/status` (fallback `8557`). With a custom `api_port`, enter both URLs manually.
 
 Optional: paste the go2rtc snippet from [`docs/go2rtc-comelit-icona.yaml`](docs/go2rtc-comelit-icona.yaml) and import [`dashboards/kuechen-panel-example.yaml`](dashboards/kuechen-panel-example.yaml) (`camera_view: auto`, not live).
 
@@ -60,13 +60,15 @@ After step 3 above you get:
 
 | Entity (example) | Role |
 |---|---|
-| `camera.comelit_icona_bridge_klingelkamera` | Live RTSP (calls `/start` on stream) |
+| `camera.comelit_icona_bridge_klingelkamera` | Live RTSP (calls `/start` on stream); stills grab a frame while video is active, otherwise return the last cached frame |
 | `button.*_start_klingelvideo` / `*_stop_klingelvideo` | `POST /start` / `/stop` |
 | `button.*_klingel_annehmen_sprechen` | `POST /answer` |
 | `button.*_tur_offnen` | `POST /door` |
 | `binary_sensor.*_klingelt` | `/status.ringing` |
 | `binary_sensor.*_icona_verbindung` | `/status.connected` |
 | `event.*_klingel` | ring / answered / door / video |
+
+HA startup does not start video. The still cache is memory-only and empty after an HA restart. Companion buttons show an HA error if the bridge call fails.
 
 Manual copy into `config/custom_components/` still works if you prefer not to use HACS.
 
