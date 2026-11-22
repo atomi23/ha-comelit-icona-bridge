@@ -72,35 +72,39 @@ def _candidate_hosts(hass: HomeAssistant) -> list[str]:
     return ordered
 
 
-def _rtsp_for_api(api_url: str) -> str:
+def _rtsp_for_api(api_url: str, status: dict | None = None) -> str:
     """Derive a matching RTSP URL; prefer loopback when API is on this HA host."""
     host = urlparse(api_url).hostname or "127.0.0.1"
     if host.lower() in {"127.0.0.1", "localhost", "homeassistant.local", "supervisor", "homeassistant", "hassio"}:
         host = "127.0.0.1"
-    return f"rtsp://{host}:{DEFAULT_RTSP_PORT}/{DEFAULT_RTSP_PATH}"
+    port = status.get("rtsp_port") if status is not None else None
+    if type(port) is not int or not 1 <= port <= 65535:
+        port = DEFAULT_RTSP_PORT
+    return f"rtsp://{host}:{port}/{DEFAULT_RTSP_PATH}"
 
 
-async def _probe_status(hass: HomeAssistant, api_url: str) -> bool:
-    """Return True when GET {api_url}/status succeeds."""
+async def _probe_status(hass: HomeAssistant, api_url: str) -> dict | None:
+    """Return the status object when GET {api_url}/status succeeds."""
     session = async_get_clientsession(hass)
     url = api_url.rstrip("/") + "/status"
     try:
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
             if resp.status >= 400:
-                return False
-            await resp.json(content_type=None)
-            return True
+                return None
+            status = await resp.json(content_type=None)
+            return status if isinstance(status, dict) else None
     except Exception:  # noqa: BLE001
-        return False
+        return None
 
 
-async def _discover_api(hass: HomeAssistant) -> str | None:
+async def _discover_api(hass: HomeAssistant) -> tuple[str, dict] | None:
     """Probe common hosts for a live add-on control API."""
     for host in _candidate_hosts(hass):
         api_url = f"http://{host}:{DEFAULT_API_PORT}"
-        if await _probe_status(hass, api_url):
+        status = await _probe_status(hass, api_url)
+        if status is not None:
             _LOGGER.info("Discovered ICONA Bridge API at %s", api_url)
-            return api_url
+            return api_url, status
     return None
 
 
@@ -138,8 +142,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         discovered = await _discover_api(self.hass)
         if discovered:
-            self._suggested_api = discovered
-            self._suggested_rtsp = _rtsp_for_api(discovered)
+            self._suggested_api, status = discovered
+            self._suggested_rtsp = _rtsp_for_api(self._suggested_api, status)
             self._discovered = True
             return await self.async_step_confirm()
 
