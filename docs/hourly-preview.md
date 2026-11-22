@@ -1,24 +1,26 @@
-English | [Deutsch](hourly-preview.de.md)
+**Deutsch** | [English](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/hourly-preview.en.md)
 
-# Hourly Klingel preview (PN-32)
+[Installation](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/installation.md) · [Optionen](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/options.md) · [Entitäten](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/entities.md) · [Dashboard](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/dashboard-go2rtc.md) · [Stündliche Vorschau](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/hourly-preview.md) · [HTTPS-Mikrofon](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/https-mic.md)
 
-Goal: keep a fresh **still** of the outdoor camera on a kitchen/panel dashboard **without** leaving ICONA live video (and outdoor LEDs) on.
+# Stündliche Klingel-Vorschau (PN-32)
 
-## Why not `camera_view: live`?
+Ziel: ein aktuelles **Standbild** der Außenkamera auf einem Küchen-/Panel-Dashboard anzeigen, **ohne** ICONA-Live-Video (und die Außen-LEDs) dauerhaft eingeschaltet zu lassen.
 
-`picture-entity` with `camera_view: live` opens the RTSP path and typically calls `/start`, which can turn on the panel’s outdoor LEDs. Each ICONA video session ends after 120 s, then the ring listener resumes if enabled and connected. Use **`camera_view: auto`** for stills. Keep the Start / Stop tiles for on-demand video control.
+## Warum nicht `camera_view: live`?
 
-HA startup does not start video. The companion grabs a still frame while video is active; otherwise it returns the last cached frame. This cache is memory-only, empty after an HA restart, and not restored from the saved JPEG.
+`picture-entity` mit `camera_view: live` öffnet den RTSP-Pfad und ruft normalerweise `/start` auf, wodurch die Außen-LEDs der Sprechanlage eingeschaltet werden können. Jede ICONA-Videositzung endet nach 120 s; anschließend wird der Klingel-Listener fortgesetzt, sofern er aktiviert und verbunden ist. Für Standbilder **`camera_view: auto`** verwenden. Die Start-/Stop-Kacheln zur bedarfsgesteuerten Videosteuerung beibehalten.
 
-## Package or blueprint
+Der HA-Start startet kein Video. Die Begleitintegration erfasst bei aktivem Video ein Standbild; andernfalls gibt sie das zuletzt zwischengespeicherte Bild zurück. Dieser Zwischenspeicher liegt nur im Arbeitsspeicher, ist nach einem HA-Neustart leer und wird nicht aus der gespeicherten JPEG-Datei wiederhergestellt.
 
-| Path | Role |
+## Paket oder Blaupause
+
+| Pfad | Aufgabe |
 |------|------|
-| [`packages/hourly_klingel_preview.yaml`](../packages/hourly_klingel_preview.yaml) | Drop-in HA **package** (automation) |
-| [`blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml`](../blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml) | Same flow as a **blueprint** (UI inputs) |
-| [`dashboards/kuechen-panel-example.yaml`](../dashboards/kuechen-panel-example.yaml) | Lovelace example: `camera_view: auto` + Start/Stop |
+| [`packages/hourly_klingel_preview.yaml`](../packages/hourly_klingel_preview.yaml) | Direkt verwendbares HA-**Paket** (Automation) |
+| [`blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml`](../blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml) | Gleicher Ablauf als **Blaupause** (Eingaben über die Oberfläche) |
+| [`dashboards/kuechen-panel-example.yaml`](../dashboards/kuechen-panel-example.yaml) | Lovelace-Beispiel: `camera_view: auto` + Start/Stop |
 
-### Install via `packages:`
+### Installation über `packages:`
 
 ```yaml
 # configuration.yaml
@@ -26,18 +28,18 @@ homeassistant:
   packages: !include_dir_named packages
 ```
 
-Copy `packages/hourly_klingel_preview.yaml` into `config/packages/`, create `/media/comelit_icona/`, restart (or reload automations).
+`packages/hourly_klingel_preview.yaml` nach `config/packages/` kopieren, `/media/comelit_icona/` anlegen und neu starten (oder Automationen neu laden).
 
-### Install via blueprint
+### Installation über die Blaupause
 
-Copy the blueprint file into `config/blueprints/automation/comelit_icona_bridge/`, create `/media/comelit_icona/` (as for the package), then **Settings → Automations & scenes → Create automation** and pick **ICONA hourly Klingel preview**.
+Die Blaupausendatei nach `config/blueprints/automation/comelit_icona_bridge/` kopieren, `/media/comelit_icona/` anlegen (wie beim Paket), dann unter **Einstellungen → Automationen & Szenen → Automation erstellen** die Blaupause **ICONA hourly Klingel preview** auswählen.
 
-## LED behaviour
+## LED-Verhalten
 
-Each hourly run: **Start** → ~4s settle → **snapshot** → **Stop**. Outdoor IR/white LEDs may **blink briefly** once per hour. That is expected. If the blink is too long, lower settle seconds (blueprint input / edit the package delay); if snapshots are black, raise slightly (e.g. 5–6s).
+Jeder stündliche Durchlauf: **Start** → ca. 4 s warten → **Standbild** → **Stop**. Die IR-/Weißlicht-LEDs außen können einmal pro Stunde **kurz aufleuchten**. Das ist zu erwarten. Leuchten sie zu lange, die Wartezeit verkürzen (Eingabe der Blaupause / Verzögerung im Paket bearbeiten); bei schwarzen Standbildern leicht erhöhen (z. B. auf 5–6 s).
 
-The package and blueprint use `continue_on_error: true` on `camera.snapshot` so Stop still runs after a failed snapshot. Companion buttons show an HA error if the bridge call fails.
+Paket und Blaupause verwenden bei `camera.snapshot` die Einstellung `continue_on_error: true`, damit Stop auch nach einem fehlgeschlagenen Standbild ausgeführt wird. Die Tasten der Begleitintegration zeigen einen HA-Fehler an, wenn der Aufruf der Bridge fehlschlägt.
 
-## Optional go2rtc frame
+## Optionales go2rtc-Standbild
 
-If you already run AlexxIT go2rtc with `comelit_icona` (see [`go2rtc-comelit-icona.yaml`](go2rtc-comelit-icona.yaml)), you can grab a JPEG via go2rtc’s frame API instead of `camera.snapshot` after `/start`. The package comments show where to swap that in. This updates only the file, not the companion camera’s cached still; use a media/file picture card to display it (see the commented example in `dashboards/kuechen-panel-example.yaml`). You still must **Stop** promptly so LEDs turn off.
+Wenn AlexxIT go2rtc bereits mit `comelit_icona` läuft (siehe [`go2rtc-comelit-icona.yaml`](go2rtc-comelit-icona.yaml)), lässt sich nach `/start` statt `camera.snapshot` eine JPEG-Datei über die Frame-API von go2rtc abrufen. Die Kommentare im Paket zeigen die Austauschstelle. Das aktualisiert nur die Datei, nicht das zwischengespeicherte Standbild der Begleitkamera; zur Anzeige eine Medien-/Datei-Bildkarte verwenden (siehe auskommentiertes Beispiel in `dashboards/kuechen-panel-example.yaml`). Weiterhin umgehend **Stop** ausführen, damit die LEDs ausgehen.

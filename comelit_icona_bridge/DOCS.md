@@ -1,6 +1,8 @@
-﻿# Comelit ICONA Bridge (Add-on)
+# Comelit ICONA Bridge (Add-on)
 
-[Deutsche Anleitung](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/README.de.md)
+[Deutsche Anleitung](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/README.md) | [English guide](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/README.en.md)
+
+[Installation](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/installation.en.md) · [Options](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/options.en.md) · [Entities](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/entities.en.md) · [Dashboard](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/dashboard-go2rtc.en.md) · [Hourly preview](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/hourly-preview.en.md) · [HTTPS microphone](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/https-mic.en.md)
 
 Local-only bridge for Comelit **6741W** / 6701W-family panels: ICONA TCP `:64100` → RTSP on the HA host (`:8557/intercom`) plus HTTP control on `:8099`.
 
@@ -12,7 +14,7 @@ Local-only bridge for Comelit **6741W** / 6701W-family panels: ICONA TCP `:64100
 
 Sample Lovelace view: `dashboards/kuechen-panel-example.yaml` in the repo (`camera_view: auto`, Start/Stop tiles). go2rtc one-liner: `docs/go2rtc-comelit-icona.yaml`.
 
-Hourly still without lasting outdoor LEDs: `packages/hourly_klingel_preview.yaml` (HA `packages:`) or `blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml` — see `docs/hourly-preview.md`. Browser mic / HTTPS: `docs/https-mic.md`.
+Hourly still without lasting outdoor LEDs: `packages/hourly_klingel_preview.yaml` (HA `packages:`) or `blueprints/automation/comelit_icona_bridge/hourly_klingel_preview.yaml` — see [`docs/hourly-preview.en.md`](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/hourly-preview.en.md). Browser mic / HTTPS: [`docs/https-mic.en.md`](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/https-mic.en.md).
 
 ## Credentials (6741W)
 
@@ -73,7 +75,7 @@ Full snippet file in the repo: `docs/go2rtc-comelit-icona.yaml`.
    - If the panel drops TCP (sleep, Wi-Fi, reboot), the add-on reconnects on its own (backoff 5 s → 5 min) and restarts the VIP listener; `/events` shows `reconnected`
 2. Doorbell ring → `/events` shows `ring`; companion `event.*klingel` + `binary_sensor.*klingelt`
 3. Live camera → `/start` or auto-on-ring → `rtsp://…:8557/intercom` (go2rtc / Lovelace)
-4. Talk → `/answer` after ring (browser mic needs HTTPS origin — see `docs/https-mic.md`); RX audio works over go2rtc WebRTC
+4. Talk → `/answer` after ring (browser mic needs HTTPS origin — see [`docs/https-mic.en.md`](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/https-mic.en.md)); RX audio works over go2rtc WebRTC
 
 ## Hourly preview (short LED window)
 
