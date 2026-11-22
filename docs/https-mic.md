@@ -1,27 +1,29 @@
-English | [Deutsch](https-mic.de.md)
+**Deutsch** | [English](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/https-mic.en.md)
 
-# Browser talk (mic) over HTTPS
+[Installation](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/installation.md) · [Optionen](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/options.md) · [Entitäten](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/entities.md) · [Dashboard](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/dashboard-go2rtc.md) · [Stündliche Vorschau](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/hourly-preview.md) · [HTTPS-Mikrofon](https://github.com/atomi23/ha-comelit-icona-bridge/blob/main/docs/https-mic.md)
 
-Outbound talk (`POST /answer` / **Sprechen**) needs a **secure origin** in the browser.
-HTTP `http://homeassistant.local:8123` often cannot use the microphone.
+# Sprechen im Browser (Mikrofon) über HTTPS
 
-## Preferred paths
+Sprechen zur Gegenstelle (`POST /answer` / **Sprechen**) benötigt einen **sicheren Ursprung** im Browser.
+Über HTTP `http://homeassistant.local:8123` lässt sich das Mikrofon oft nicht verwenden.
 
-1. **NGINX Home Assistant SSL Proxy** (add-on)  
-   Terminate TLS on the proxy; open HA via `https://…`. Use this when you already have a certificate or want a reverse proxy in front of HA.
+## Empfohlene Wege
 
-2. **DuckDNS + Let’s Encrypt**  
-   DuckDNS add-on (or similar) for a hostname + Let’s Encrypt certificate, then reach HA at `https://<your-duckdns>.duckdns.org:8123` (or via NGINX SSL Proxy with those certs).
+1. **NGINX Home Assistant SSL Proxy** (Add-on)\
+   TLS am Proxy terminieren; HA über `https://…` öffnen. Diesen Weg verwenden, wenn bereits ein Zertifikat vorhanden ist oder ein Reverse-Proxy vor HA gewünscht ist.
 
-After HTTPS works, open the Lovelace view from that HTTPS URL and use **Sprechen**. Camera stills / Start / Stop do not require the mic.
+2. **DuckDNS + Let’s Encrypt**\
+   DuckDNS-Add-on (oder ähnlich) für einen Hostnamen + Let’s-Encrypt-Zertifikat verwenden und HA dann über `https://<your-duckdns>.duckdns.org:8123` aufrufen (oder über NGINX SSL Proxy mit diesen Zertifikaten).
 
-## Repair: leftover `http:` after UI migration
+Sobald HTTPS funktioniert, die Lovelace-Ansicht über diese HTTPS-URL öffnen und **Sprechen** verwenden. Kamera-Standbilder / Start / Stop benötigen kein Mikrofon.
 
-If Settings shows something like **`yaml_still_present_after_migration`** (or network settings refuse to save) after moving HTTP/network config into the UI:
+## Reparatur: verbliebenes `http:` nach der Migration zur Oberfläche
 
-1. Open `configuration.yaml`.
-2. **Remove** any leftover top-level `http:` block that duplicates what the UI now owns (e.g. `ssl_certificate`, `ssl_key`, `server_port`, `use_x_forwarded_for`, `trusted_proxies` only if you migrated those to the UI / proxy add-on).
-3. Keep proxy-related keys only where your chosen path needs them (often in the NGINX SSL Proxy add-on config, not in core `http:`).
-4. Check configuration → restart Home Assistant.
+Wenn die Einstellungen nach dem Umzug der HTTP-/Netzwerkkonfiguration in die Oberfläche beispielsweise **`yaml_still_present_after_migration`** anzeigen (oder sich Netzwerkeinstellungen nicht speichern lassen):
 
-Do not delete unrelated YAML. Only clear the migrated `http:` leftovers the repair message refers to.
+1. `configuration.yaml` öffnen.
+2. Einen verbliebenen `http:`-Block auf oberster Ebene **entfernen**, sofern er Einstellungen dupliziert, die nun die Oberfläche verwaltet (z. B. `ssl_certificate`, `ssl_key`, `server_port`, `use_x_forwarded_for`, `trusted_proxies` nur dann, wenn diese in die Oberfläche / das Proxy-Add-on migriert wurden).
+3. Proxy-bezogene Schlüssel nur dort beibehalten, wo der gewählte Weg sie benötigt (oft in der Konfiguration des NGINX-SSL-Proxy-Add-ons, nicht unter `http:` in Core).
+4. Konfiguration prüfen → Home Assistant neu starten.
+
+Kein unbeteiligtes YAML löschen. Nur die migrierten `http:`-Reste entfernen, auf die sich die Reparaturmeldung bezieht.
