@@ -34,4 +34,10 @@ No cloud auth bypass. No Frida. No LAN packet-capture required — the add-on sp
 - [Search Amazon.de for Comelit 6741W (Prime filter)](https://www.amazon.de/s?tag=atomi23-21&k=Comelit+6741W&rh=p_85%3A20943776031)\*
 - [Search Amazon.de for Comelit 6701W (Prime filter)](https://www.amazon.de/s?tag=atomi23-21&k=Comelit+6701W&rh=p_85%3A20943776031)\*
 
+### Accessories
+
+- [Search Amazon.de for Home Assistant Green for the HA host (Prime filter)](https://www.amazon.de/s?tag=atomi23-21&k=Home+Assistant+Green&rh=p_85%3A20943776031)\*
+- [Search Amazon.de for an Android tablet for the kitchen dashboard (Prime filter)](https://www.amazon.de/s?tag=atomi23-21&k=Android+Tablet&rh=p_85%3A20943776031)\*
+- [Search Amazon.de for a tablet wall mount for the kitchen dashboard (Prime filter)](https://www.amazon.de/s?tag=atomi23-21&k=Tablet+Wandhalterung&rh=p_85%3A20943776031)\*
+
 \*As an Amazon Associate I earn from qualifying purchases. Links marked * are affiliate/advertising links.
