@@ -34,4 +34,10 @@ Keine Umgehung der Cloud-Authentifizierung. Kein Frida. Kein Mitschneiden von LA
 - [Comelit 6741W auf Amazon.de suchen (Prime-Filter)](https://www.amazon.de/s?tag=atomi23-21&k=Comelit+6741W&rh=p_85%3A20943776031)\*
 - [Comelit 6701W auf Amazon.de suchen (Prime-Filter)](https://www.amazon.de/s?tag=atomi23-21&k=Comelit+6701W&rh=p_85%3A20943776031)\*
 
+### Zubehör
+
+- [Home Assistant Green für den HA-Host auf Amazon.de suchen (Prime-Filter)](https://www.amazon.de/s?tag=atomi23-21&k=Home+Assistant+Green&rh=p_85%3A20943776031)\*
+- [Android-Tablet für das Küchen-Dashboard auf Amazon.de suchen (Prime-Filter)](https://www.amazon.de/s?tag=atomi23-21&k=Android+Tablet&rh=p_85%3A20943776031)\*
+- [Tablet-Wandhalterung für das Küchen-Dashboard auf Amazon.de suchen (Prime-Filter)](https://www.amazon.de/s?tag=atomi23-21&k=Tablet+Wandhalterung&rh=p_85%3A20943776031)\*
+
 \*Als Amazon-Partner verdiene ich an qualifizierten Verkäufen. Mit * markierte Links sind Werbe-/Affiliate-Links.
