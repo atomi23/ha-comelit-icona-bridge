@@ -1,3 +1,5 @@
+English | [Deutsch](https-mic.de.md)
+
 # Browser talk (mic) over HTTPS
 
 Outbound talk (`POST /answer` / **Sprechen**) needs a **secure origin** in the browser.

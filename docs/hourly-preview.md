@@ -1,3 +1,5 @@
+English | [Deutsch](hourly-preview.de.md)
+
 # Hourly Klingel preview (PN-32)
 
 Goal: keep a fresh **still** of the outdoor camera on a kitchen/panel dashboard **without** leaving ICONA live video (and outdoor LEDs) on.
