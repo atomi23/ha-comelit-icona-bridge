@@ -331,6 +331,7 @@ class IconaBridgeService:
             await self._ensure_connected()
             assert self.client is not None
             assert self.device_config is not None
+            await self.ensure_rtsp()
             # Pause VIP listen task so video owns CTPP reads; keep channels.
             if self._vip is not None:
                 await self._vip.stop_task()
@@ -342,16 +343,20 @@ class IconaBridgeService:
                         ctpp.response_queue.get_nowait()
                     except Exception:
                         break
-            await self.ensure_rtsp()
             session = VideoCallSession(
                 self.client,
                 self.device_config,
                 auto_timeout=True,
                 rtsp_server=self.rtsp,
-                on_call_end=self._on_call_end,
+                on_call_end=lambda: self._on_call_end(session),
+                on_timeout=lambda: self._on_call_end(session),
                 on_ring=self._on_mid_call_ring,
             )
-            await session.start()
+            try:
+                await session.start()
+            except Exception:
+                await self._resume_vip()
+                raise
             self.session = session
             self.last_error = None
             self._record_event("video_started", mode="outbound")
@@ -370,19 +375,24 @@ class IconaBridgeService:
                 if not self._pending_inbound:
                     raise ComelitError("No pending inbound ring — wait for doorbell or pass entrance/ring_ts")
                 entrance_addr, ring_ts = self._pending_inbound
+            await self.ensure_rtsp()
             if self._vip is not None:
                 await self._vip.stop_task()
-            await self.ensure_rtsp()
             renewal = (self._ctpp_init_ts + 0x01010000) & 0xFFFFFFFF
             session = VideoCallSession(
                 self.client,
                 self.device_config,
                 auto_timeout=True,
                 rtsp_server=self.rtsp,
-                on_call_end=self._on_call_end,
+                on_call_end=lambda: self._on_call_end(session),
+                on_timeout=lambda: self._on_call_end(session),
                 on_ring=self._on_mid_call_ring,
             )
-            await session.start_inbound(entrance_addr, ring_ts, renewal_ack_ts=renewal)
+            try:
+                await session.start_inbound(entrance_addr, ring_ts, renewal_ack_ts=renewal)
+            except Exception:
+                await self._resume_vip()
+                raise
             self.session = session
             self.last_error = None
             self._record_event("video_started", mode="inbound", entrance=entrance_addr)
@@ -431,15 +441,22 @@ class IconaBridgeService:
         self._last_ring = {"ts": time.time(), "ring_ts": ring_ts, "entrance": entrance_addr}
         self._record_event("ring", entrance=entrance_addr, ring_ts=ring_ts, mid_call=True)
 
-    def _on_call_end(self) -> None:
-        LOG.info("Video session ended")
-        self.session = None
-        self._record_event("video_stopped")
-        # Resume VIP listener on shared CTPP
-        if self.enable_vip_listener and self.client and self.client.connected:
-            asyncio.create_task(self._resume_vip())
+    def _on_call_end(self, session: VideoCallSession) -> None:
+        asyncio.create_task(self._finish_session(session))
+
+    async def _finish_session(self, session: VideoCallSession) -> None:
+        async with self._session_lock:
+            if self.session is not session:
+                return
+            LOG.info("Video session ended")
+            await session.stop()
+            self.session = None
+            self._record_event("video_stopped")
+            await self._resume_vip()
 
     async def _resume_vip(self) -> None:
+        if not (self.enable_vip_listener and self.client and self.client.connected) or self.closing:
+            return
         try:
             await self._start_vip_listener()
         except Exception:  # noqa: BLE001
@@ -452,8 +469,7 @@ class IconaBridgeService:
                 self.session = None
             self._ringing = False
             self._record_event("video_stopped")
-            if self.enable_vip_listener and self.client and self.client.connected:
-                asyncio.create_task(self._resume_vip())
+            await self._resume_vip()
             return {"ok": True, **self.status}
 
     async def open_named_door(self, name: str | None = None) -> dict[str, Any]:
