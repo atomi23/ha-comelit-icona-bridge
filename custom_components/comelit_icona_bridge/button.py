@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 import aiohttp
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -56,9 +58,28 @@ class IconaApiButton(ButtonEntity):
         try:
             async with session.post(f"{api}/{self._path}", timeout=aiohttp.ClientTimeout(total=45)) as resp:
                 body = await resp.text()
-                if resp.status >= 400:
-                    _LOGGER.error("ICONA bridge /%s failed: %s %s", self._path, resp.status, body[:200])
-                else:
-                    _LOGGER.info("ICONA bridge /%s ok", self._path)
-        except Exception:  # noqa: BLE001
-            _LOGGER.exception("ICONA bridge /%s request failed", self._path)
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="request_failed",
+                translation_placeholders={"action": self._path, "error": str(err) or type(err).__name__},
+            ) from err
+        if resp.status >= 400:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="request_rejected",
+                translation_placeholders={
+                    "action": self._path,
+                    "status": str(resp.status),
+                    "error": _error_detail(body),
+                },
+            )
+        _LOGGER.info("ICONA bridge /%s ok", self._path)
+
+
+def _error_detail(body: str) -> str:
+    """Return the bridge's error message, falling back to the raw response body."""
+    try:
+        return str(json.loads(body)["error"])
+    except (ValueError, KeyError, TypeError):
+        return body[:200]
