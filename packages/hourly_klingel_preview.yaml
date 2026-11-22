@@ -45,6 +45,7 @@ automation:
 
       # 3) Still to local media (shown by Lovelace image / media browser)
       - service: camera.snapshot
+        continue_on_error: true
         target:
           entity_id: camera.comelit_icona_bridge_klingelkamera
         data:

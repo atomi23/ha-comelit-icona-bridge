@@ -73,6 +73,7 @@ action:
   - delay:
       seconds: !input settle_seconds
   - service: camera.snapshot
+    continue_on_error: true
     target:
       entity_id: !input camera_entity
     data:
