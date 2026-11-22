@@ -36,5 +36,13 @@
     "abort": {
       "already_configured": "Bereits konfiguriert"
     }
+  },
+  "exceptions": {
+    "request_failed": {
+      "message": "ICONA-Bridge-Add-on für /{action} nicht erreichbar: {error}"
+    },
+    "request_rejected": {
+      "message": "ICONA Bridge hat /{action} abgelehnt (HTTP {status}): {error}"
+    }
   }
 }

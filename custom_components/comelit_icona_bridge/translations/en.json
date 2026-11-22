@@ -36,5 +36,13 @@
     "abort": {
       "already_configured": "Already configured"
     }
+  },
+  "exceptions": {
+    "request_failed": {
+      "message": "Could not reach the ICONA Bridge add-on for /{action}: {error}"
+    },
+    "request_rejected": {
+      "message": "ICONA Bridge rejected /{action} (HTTP {status}): {error}"
+    }
   }
 }
