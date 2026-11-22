@@ -1264,8 +1264,9 @@ class VideoCallSession:
         try:
             await asyncio.sleep(VIDEO_SESSION_TIMEOUT)
             _LOGGER.info("Video session timed out after %ds", VIDEO_SESSION_TIMEOUT)
-            await self._cleanup()
             if self._on_timeout:
                 self._on_timeout()
+            else:
+                await self._cleanup()
         except asyncio.CancelledError:
             pass
