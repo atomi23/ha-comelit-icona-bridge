@@ -52,6 +52,8 @@ automation:
           filename: /media/comelit_icona/klingel_preview.jpg
 
       # Optional go2rtc alternative (uncomment if you prefer a go2rtc JPEG grab):
+      # Updates only the file, not the companion camera's cached still;
+      # display it with a media/file picture card (see the dashboard example).
       # - service: rest_command.comelit_icona_go2rtc_frame
       #   # or: shell_command / curl http://127.0.0.1:1984/api/frame.jpeg?src=comelit_icona
       #   # → write to /media/comelit_icona/klingel_preview.jpg

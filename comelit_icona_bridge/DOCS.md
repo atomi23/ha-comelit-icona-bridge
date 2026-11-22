@@ -6,7 +6,7 @@ Local-only bridge for Comelit **6741W** / 6701W-family panels: ICONA TCP `:64100
 
 1. **Add repo** — Add-on store → ⋮ → Repositories → `https://github.com/atomi23/ha-comelit-icona-bridge` → install **Comelit ICONA Bridge**.
 2. **host + token** — Set panel IP and ICONA `token`. Leave **`password` empty** (optional field; not used on typical 6741W Installer/Hausverwalter UIs without Backup). Start the add-on; confirm `GET http://<ha-ip>:8099/status`.
-3. **HACS companion** — HACS custom repository (same URL, category **Integration**) → install **Comelit ICONA Bridge Camera** → restart → add integration (URLs auto-detect when the add-on is up).
+3. **HACS companion** — HACS custom repository (same URL, category **Integration**) → install **Comelit ICONA Bridge Camera** → restart → add integration. Discovery probes the API only on port `8099`. The suggested RTSP URL uses the discovered host (recognized local aliases use `127.0.0.1`) and the valid `rtsp_port` reported by `/status` (fallback `8557`). With a custom `api_port`, enter both URLs manually.
 
 Sample Lovelace view: `dashboards/kuechen-panel-example.yaml` in the repo (`camera_view: auto`, Start/Stop tiles). go2rtc one-liner: `docs/go2rtc-comelit-icona.yaml`.
 
@@ -75,4 +75,4 @@ Full snippet file in the repo: `docs/go2rtc-comelit-icona.yaml`.
 
 ## Hourly preview (short LED window)
 
-Do not leave Lovelace on `camera_view: live` for a kitchen still. Use `auto` plus the hourly package/blueprint: Start → short wait → `camera.snapshot` to `/media` → Stop. Outdoor LEDs may blink briefly each hour; that is expected.
+Live view can turn on the outdoor LEDs. Each ICONA video session ends after 120 s, then the ring listener resumes if enabled and connected. Use `camera_view: auto` for a kitchen still plus the hourly package/blueprint: Start → short wait → `camera.snapshot` to `/media` → Stop. Outdoor LEDs may blink briefly each hour; that is expected.

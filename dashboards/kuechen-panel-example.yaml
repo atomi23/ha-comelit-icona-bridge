@@ -16,7 +16,8 @@
 # Adjust if you renamed entities.
 #
 # PN-32: camera_view is `auto` (still / snapshot behaviour), NOT `live`.
-# Live would keep ICONA video (and outdoor LEDs) on while the view is open.
+# Live can turn on outdoor LEDs. Each ICONA video session ends after 120 s;
+# the ring listener then resumes if enabled and connected.
 # Use Start / Stop tiles for on-demand live; hourly package refreshes a media still.
 
 title: Küchen-Panel (ICONA Beispiel)
@@ -34,7 +35,8 @@ views:
             heading_style: title
 
           # Still by default (auto). Do not set camera_view: live here —
-          # live keeps ICONA video / outdoor LEDs on while the view is open.
+          # live can turn on outdoor LEDs until the 120 s session ends.
+          # The ring listener then resumes if enabled and connected.
           - type: picture-entity
             entity: camera.comelit_icona_bridge_klingelkamera
             camera_view: auto
