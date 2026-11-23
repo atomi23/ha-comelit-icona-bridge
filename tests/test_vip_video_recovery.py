@@ -160,6 +160,28 @@ class VipVideoRecoveryTests(unittest.IsolatedAsyncioTestCase):
             await self.panel_frame(0x1840, 0x02020001, 0)
             await self.assert_ring_status(api, ringing=False, pending=False)
 
+    async def test_second_alerting_ring_after_idle_is_not_suppressed(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            with patch("icona.vip_listener.time") as clock:
+                clock.time.return_value = 100.0
+                await self.panel_frame(0x1860, 0x01010001, 1)
+                await self.assert_ring_status(api, ringing=True, pending=False)
+                await self.panel_frame(0x1840, 0x02020001, 0)
+                await self.assert_ring_status(api, ringing=False, pending=False)
+
+                clock.time.return_value = 101.0
+                await self.panel_frame(0x1860, 0x01010002, 1)
+                await self.assert_ring_status(api, ringing=True, pending=False)
+                await self.panel_frame(0x1860, 0x01010002, 1)
+                await self.panel_frame(0x1860, 0x01010002, 3)
+                await self.panel_frame(0x1860, 0x01010002, 3)
+                await self.panel_frame(0x1840, 0x02020002, 0)
+                await self.panel_frame(0x1860, 0x01010001, 1)
+                await self.assert_ring_status(api, ringing=False, pending=False)
+
+            events = (await (await api.get("/events")).json())["events"]
+            self.assertEqual([event["type"] for event in events], ["ring", "ring", "door_opened"])
+
     async def test_stop_clears_pending_ring_without_video(self):
         async with TestClient(TestServer(build_app(self.service))) as api:
             await self.panel_frame(0x18C0, 123, 1)

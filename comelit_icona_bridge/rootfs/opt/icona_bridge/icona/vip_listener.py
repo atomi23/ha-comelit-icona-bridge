@@ -152,9 +152,7 @@ class VipEventListener:
         self._on_inbound_ring = on_inbound_ring
         self._on_call_idle = on_call_idle
         self._task: asyncio.Task[None] | None = None
-        # Timestamp of the last fired event per type — used to deduplicate
-        # repeated transmissions (device retransmits call init every ~1-2s).
-        self._last_fired: dict[str, float] = {}
+        self._last_fired: dict[tuple[str, int], float] = {}
         self._dedup_window: float = 10.0  # seconds
         # Tracks the last device timestamp seen per (prefix, action) pair so
         # we can detect retransmits: if the device resends the same message
@@ -492,10 +490,14 @@ class VipEventListener:
     def _fire_event(self, event_type: str, addresses: list[str], ctpp_ts: int) -> None:
         """Create and dispatch a PushEvent, deduplicating rapid retransmissions."""
         now = time.time()
-        if now - self._last_fired.get(event_type, 0.0) < self._dedup_window:
+        key = (event_type, ctpp_ts)
+        self._last_fired = {
+            event: fired_at for event, fired_at in self._last_fired.items() if now - fired_at < self._dedup_window
+        }
+        if key in self._last_fired:
             _LOGGER.debug("VIP: suppressing duplicate %s event", event_type)
             return
-        self._last_fired[event_type] = now
+        self._last_fired[key] = now
         _LOGGER.info("VIP: firing %s event (addrs=%s)", event_type, addresses)
 
         caller = addresses[0] if addresses else ""
