@@ -424,7 +424,7 @@ class VipEventListener:
                 except Exception:
                     _LOGGER.exception("Error in inbound ring callback")
             else:
-                self._fire_event("ring", addresses, ring_ts)
+                self._fire_event("ring", msg)
             return
 
         # 0x1860 = VIP FSM event. Action encodes the event subtype — see ACTION_* constants.
@@ -437,13 +437,13 @@ class VipEventListener:
             )
             if action == ACTION_IN_ALERTING:
                 # IN_ALERTING: someone rang the doorbell
-                self._fire_event("ring", addresses, msg["timestamp"])
+                self._fire_event("ring", msg)
             elif action == ACTION_CONNECTED:
                 # CONNECTED: call was answered
                 pass
             elif action == ACTION_DOOR_OPENED:
                 # OUT_INITIATED / door opened (confirmed by testing)
-                self._fire_event("door_opened", addresses, msg["timestamp"])
+                self._fire_event("door_opened", msg)
             elif action == ACTION_OUT_ALERTING:
                 # OUT_ALERTING: outgoing call is ringing
                 pass
@@ -487,8 +487,10 @@ class VipEventListener:
             return str(self._config.apt_address)
         return addresses[0] if addresses else ""
 
-    def _fire_event(self, event_type: str, addresses: list[str], ctpp_ts: int) -> None:
+    def _fire_event(self, event_type: str, msg: dict[str, Any]) -> None:
         """Create and dispatch a PushEvent, deduplicating rapid retransmissions."""
+        addresses = msg["addresses"]
+        ctpp_ts = msg["timestamp"]
         now = time.time()
         key = (event_type, ctpp_ts)
         self._last_fired = {
@@ -501,6 +503,8 @@ class VipEventListener:
         _LOGGER.info("VIP: firing %s event (addrs=%s)", event_type, addresses)
 
         caller = addresses[0] if addresses else ""
+        if event_type == "ring":
+            caller = self._caller_for(msg, addresses)
         event = PushEvent(
             event_type=event_type,
             apt_address=caller,

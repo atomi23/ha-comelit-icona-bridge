@@ -244,14 +244,18 @@ class IconaBridgeService:
             self._ctpp_init_ts = int(time.time()) & 0xFFFFFFFF
 
         def _on_push(event: PushEvent) -> None:
-            self._record_event(event.event_type, apt_address=event.apt_address)
             if event.event_type == "ring":
-                if self._pending_inbound is None and event.raw is not None:
-                    self._alerting = (event.apt_address, event.raw["ctpp_ts"])
+                if event.raw is not None:
+                    ring_ts = event.raw["ctpp_ts"]
+                    if self._is_duplicate_alerting(event.apt_address, ring_ts):
+                        return
+                    if self._pending_inbound is None:
+                        self._alerting = (event.apt_address, ring_ts)
                 self._last_ring = {
                     "ts": event.timestamp,
                     "apt_address": event.apt_address,
                 }
+            self._record_event(event.event_type, apt_address=event.apt_address)
 
         def _on_inbound_ring(entrance_addr: str, ring_ts: int) -> None:
             self._publish_inbound_ring(entrance_addr, ring_ts)
@@ -445,7 +449,17 @@ class IconaBridgeService:
                 self._record_event("answered")
             return {"ok": True, **self.status}
 
-    def _on_mid_call_ring(self, entrance_addr: str, ring_ts: int) -> None:
+    def _is_duplicate_alerting(self, entrance_addr: str, ring_ts: int) -> bool:
+        return any(
+            ring is not None
+            and (ring[1] & 0xFFFF) == (ring_ts & 0xFFFF)
+            and (ring[0] == entrance_addr or address_matches(ring[0], entrance_addr))
+            for ring in (*self._recent_inbound_rings, self._session_ring)
+        )
+
+    def _on_mid_call_ring(self, entrance_addr: str, ring_ts: int, is_alerting: bool) -> None:
+        if is_alerting and self._is_duplicate_alerting(entrance_addr, ring_ts):
+            return
         self._publish_inbound_ring(entrance_addr, ring_ts, mid_call=True)
 
     def _publish_inbound_ring(self, entrance_addr: str, ring_ts: int, *, mid_call: bool = False) -> None:
