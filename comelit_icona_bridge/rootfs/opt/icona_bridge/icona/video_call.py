@@ -90,7 +90,7 @@ class VideoCallSession:
         rtsp_server: LocalRtspServer | None = None,
         on_call_end: Callable[[], None] | None = None,
         on_timeout: Callable[[], None] | None = None,
-        on_ring: Callable[[str, int], None] | None = None,
+        on_ring: Callable[[str, int, bool], None] | None = None,
         on_call_idle: Callable[[list[str], int], None] | None = None,
     ) -> None:
         self._client = client
@@ -99,7 +99,7 @@ class VideoCallSession:
         self._external_rtsp = rtsp_server is not None
         self._on_call_end = on_call_end
         self._on_timeout = on_timeout
-        # Invoked with (entrance_addr, ring_ts) when a 0x18C0 ring arrives
+        # Invoked with (entrance_addr, ring_ts, is_alerting) when a ring arrives
         # while this session holds the CTPP channel (the VIP listener is
         # stopped then, so without forwarding the ring would vanish).
         self._on_ring = on_ring
@@ -743,16 +743,15 @@ class VideoCallSession:
     def _forward_ring(self, data: bytes) -> None:
         """Forward a mid-call ring to the coordinator without touching the session.
 
-        The coordinator dedups by (entrance, ring_ts) — device retransmits of
-        the same ring share ring_ts, so each ring fires at most once. The
-        running session is left alone (passive behavior: video keeps flowing,
-        other stations keep ringing).
+        The coordinator deduplicates retransmits and matches IN_ALERTING to
+        a ring already reported by CALL_INIT. The running session is left
+        alone (video keeps flowing and other stations keep ringing).
         """
         if self._on_ring is None:
             return
         # Local import: vip_listener imports _transform_device_ts from this
         # module, so a top-level import here would be circular.
-        from .vip_listener import CALL_TAG_FLOOR, parse_ctpp_message
+        from .vip_listener import CALL_TAG_FLOOR, PREFIX_VIP_EVENT, parse_ctpp_message
 
         msg = parse_ctpp_message(data)
         if msg is None:
@@ -771,7 +770,7 @@ class VideoCallSession:
             msg["timestamp"],
         )
         try:
-            self._on_ring(entrance_addr, msg["timestamp"])
+            self._on_ring(entrance_addr, msg["timestamp"], msg["prefix"] == PREFIX_VIP_EVENT)
         except Exception:
             _LOGGER.exception("Error in mid-call ring callback")
 

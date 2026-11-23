@@ -144,6 +144,19 @@ class VipVideoRecoveryTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(self.panel, "send_binary", new_callable=AsyncMock):
             await self.service._vip._process_message(call_frame(prefix, timestamp, action))
 
+    async def test_alerting_after_call_init_publishes_one_ring(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            await self.panel_frame(0x18C0, 0x01010001, 1)
+            await self.panel_frame(0x1860, 0x02020001, 1)
+
+            events = (await (await api.get("/events")).json())["events"]
+            self.assertEqual([event["type"] for event in events], ["ring"])
+            await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=0x01010001)
+
+            await self.panel_frame(0x1860, 0x02020002, 1)
+            events = (await (await api.get("/events")).json())["events"]
+            self.assertEqual([event["type"] for event in events], ["ring", "ring"])
+
     async def test_idle_clears_only_matching_ring(self):
         async with TestClient(TestServer(build_app(self.service))) as api:
             await self.panel_frame(0x18C0, 0x01010001, 1)
@@ -240,8 +253,11 @@ class VipVideoRecoveryTests(unittest.IsolatedAsyncioTestCase):
                     )
 
             await process_frames(call_frame(0x18C0, 0x01010002, 1), call_frame(0x1840, 0x02020001, 0))
+            await process_frames(call_frame(0x1860, 0x02020002, 1))
             status = await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=0x01010002)
             self.assertTrue(status["video_active"])
+            events = (await (await api.get("/events")).json())["events"]
+            self.assertEqual([event["type"] for event in events].count("ring"), 1)
 
             await process_frames(call_frame(0x1840, 0x02020002, 0))
             self.assertTrue(session.active)
