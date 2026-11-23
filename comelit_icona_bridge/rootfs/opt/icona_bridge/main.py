@@ -450,13 +450,11 @@ class IconaBridgeService:
             return {"ok": True, **self.status}
 
     def _is_duplicate_alerting(self, entrance_addr: str, ring_ts: int) -> bool:
-        if (entrance_addr, ring_ts) in self._recent_inbound_rings:
-            return True
         return any(
             ring is not None
             and (ring[1] & 0xFFFF) == (ring_ts & 0xFFFF)
             and (ring[0] == entrance_addr or address_matches(ring[0], entrance_addr))
-            for ring in (self._pending_inbound, self._session_ring)
+            for ring in (*self._recent_inbound_rings, self._session_ring)
         )
 
     def _on_mid_call_ring(self, entrance_addr: str, ring_ts: int, is_alerting: bool) -> None:

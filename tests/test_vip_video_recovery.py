@@ -157,6 +157,16 @@ class VipVideoRecoveryTests(unittest.IsolatedAsyncioTestCase):
             events = (await (await api.get("/events")).json())["events"]
             self.assertEqual([event["type"] for event in events], ["ring", "ring"])
 
+    async def test_late_alerting_does_not_republish_an_interleaved_call(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            await self.panel_frame(0x18C0, 0x01010001, 1)
+            await self.panel_frame(0x18C0, 0x01010002, 1)
+            await self.panel_frame(0x1860, 0x02020001, 1)
+
+            events = (await (await api.get("/events")).json())["events"]
+            self.assertEqual([event["type"] for event in events], ["ring", "ring"])
+            await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=0x01010002)
+
     async def test_idle_clears_only_matching_ring(self):
         async with TestClient(TestServer(build_app(self.service))) as api:
             await self.panel_frame(0x18C0, 0x01010001, 1)
