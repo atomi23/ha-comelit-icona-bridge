@@ -18,6 +18,10 @@ from icona.models import DeviceConfig
 from icona.video_call import VideoCallSession
 
 
+def call_frame(prefix, timestamp, action):
+    return struct.pack("<HI", prefix, timestamp) + struct.pack(">HH", action, 0) + b"SB100001\x00SB0000060\x00"
+
+
 class FakePanelTransport:
     """Shared CTPP queue with a panel that rejects video signaling."""
 
@@ -124,6 +128,125 @@ class VipVideoRecoveryTests(unittest.IsolatedAsyncioTestCase):
         await self.start_successfully()
         await self.service.stop_video()
         await self.assert_next_ring_received()
+
+    async def assert_ring_status(self, api, *, ringing, pending, ring_ts=None):
+        status = await (await api.get("/status")).json()
+        self.assertEqual(
+            (status["ringing"], status["pending_inbound"]),
+            (ringing, pending),
+            f"/status: ringing={status['ringing']}, pending_inbound={status['pending_inbound']}",
+        )
+        if ring_ts is not None:
+            self.assertEqual(status["last_ring"]["ring_ts"], ring_ts)
+        return status
+
+    async def panel_frame(self, prefix, timestamp, action):
+        with patch.object(self.panel, "send_binary", new_callable=AsyncMock):
+            await self.service._vip._process_message(call_frame(prefix, timestamp, action))
+
+    async def test_idle_clears_only_matching_ring(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            await self.panel_frame(0x18C0, 0x01010001, 1)
+            await self.panel_frame(0x18C0, 0x01010002, 1)
+            await self.panel_frame(0x1840, 0x02020001, 0)
+            await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=0x01010002)
+            await self.panel_frame(0x1840, 0x02020002, 0)
+            await self.assert_ring_status(api, ringing=False, pending=False, ring_ts=0x01010002)
+
+    async def test_idle_clears_alerting_without_call_init(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            await self.panel_frame(0x1860, 0x01010001, 1)
+            await self.assert_ring_status(api, ringing=True, pending=False)
+            await self.panel_frame(0x1840, 0x02020001, 0)
+            await self.assert_ring_status(api, ringing=False, pending=False)
+
+    async def test_second_alerting_ring_after_idle_is_not_suppressed(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            with patch("icona.vip_listener.time") as clock:
+                clock.time.return_value = 100.0
+                await self.panel_frame(0x1860, 0x01010001, 1)
+                await self.assert_ring_status(api, ringing=True, pending=False)
+                await self.panel_frame(0x1840, 0x02020001, 0)
+                await self.assert_ring_status(api, ringing=False, pending=False)
+
+                clock.time.return_value = 101.0
+                await self.panel_frame(0x1860, 0x01010002, 1)
+                await self.assert_ring_status(api, ringing=True, pending=False)
+                await self.panel_frame(0x1860, 0x01010002, 1)
+                await self.panel_frame(0x1860, 0x01010002, 3)
+                await self.panel_frame(0x1860, 0x01010002, 3)
+                await self.panel_frame(0x1840, 0x02020002, 0)
+                await self.panel_frame(0x1860, 0x01010001, 1)
+                await self.assert_ring_status(api, ringing=False, pending=False)
+
+            events = (await (await api.get("/events")).json())["events"]
+            self.assertEqual([event["type"] for event in events], ["ring", "ring", "door_opened"])
+
+    async def test_stop_clears_pending_ring_without_video(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            await self.panel_frame(0x18C0, 123, 1)
+            await self.assert_ring_status(api, ringing=True, pending=True)
+            self.assertEqual((await api.post("/stop")).status, 200)
+            await self.assert_ring_status(api, ringing=False, pending=False, ring_ts=123)
+
+    async def start_inbound_successfully(self):
+        async def start(session, *args, **kwargs):
+            session._active = True
+
+        await self.panel_frame(0x18C0, 123, 1)
+        with patch.object(VideoCallSession, "start_inbound", start):
+            await self.service.start_inbound()
+        return self.service.session
+
+    async def check_inbound_timeout(self, *, newer_ring):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            session = await self.start_inbound_successfully()
+            await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=123)
+            if newer_ring:
+                session._forward_ring(call_frame(0x18C0, 124, 1))
+            with patch("icona.video_call.VIDEO_SESSION_TIMEOUT", 0):
+                await session._auto_timeout_loop()
+            status = await self.assert_ring_status(
+                api, ringing=newer_ring, pending=newer_ring, ring_ts=124 if newer_ring else 123,
+            )
+            self.assertFalse(status["video_active"])
+            self.assertIsNone(self.service.session)
+
+    async def test_timeout_clears_its_inbound_ring(self):
+        await self.check_inbound_timeout(newer_ring=False)
+
+    async def test_old_timeout_keeps_newer_ring(self):
+        await self.check_inbound_timeout(newer_ring=True)
+
+    async def test_old_stop_keeps_newer_ring(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            session = await self.start_inbound_successfully()
+            session._forward_ring(call_frame(0x18C0, 124, 1))
+            self.assertEqual((await api.post("/stop")).status, 200)
+            await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=124)
+
+    async def test_idle_during_live_view_clears_only_its_ring(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            session = await self.start_successfully()
+
+            async def process_frames(*frames):
+                read_response = AsyncMock(side_effect=[*frames, asyncio.CancelledError])
+                with (
+                    patch.object(self.panel, "read_response", read_response, create=True),
+                    patch.object(self.panel, "send_binary", new_callable=AsyncMock),
+                ):
+                    await session._ctpp_monitor_loop(
+                        self.panel, self.panel.ctpp, "SB0000060", "SB100001", 0, 0, 0,
+                    )
+
+            await process_frames(call_frame(0x18C0, 0x01010002, 1), call_frame(0x1840, 0x02020001, 0))
+            status = await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=0x01010002)
+            self.assertTrue(status["video_active"])
+
+            await process_frames(call_frame(0x1840, 0x02020002, 0))
+            self.assertTrue(session.active)
+            self.assertEqual((await api.post("/stop")).status, 200)
+            await self.assert_ring_status(api, ringing=False, pending=False, ring_ts=0x01010002)
 
 
 if __name__ == "__main__":

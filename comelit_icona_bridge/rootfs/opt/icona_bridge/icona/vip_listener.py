@@ -137,7 +137,7 @@ class VipEventListener:
         callback: Callable[[PushEvent], None],
         init_ts: int,
         on_inbound_ring: Callable[[str, int], None] | None = None,
-        on_call_idle: Callable[[list[str]], None] | None = None,
+        on_call_idle: Callable[[list[str], int], None] | None = None,
     ) -> None:
         self._client = client
         self._config = config
@@ -150,13 +150,9 @@ class VipEventListener:
         self._init_ts = init_ts
         self._ack_ts = (init_ts + _CTR_INCR_BOTH) & 0xFFFFFFFF
         self._on_inbound_ring = on_inbound_ring
-        # Invoked on 0x1840/0x0000 (idle) frames; the coordinator gates
-        # these into missed_call events (recent unanswered ring, no video).
         self._on_call_idle = on_call_idle
         self._task: asyncio.Task[None] | None = None
-        # Timestamp of the last fired event per type — used to deduplicate
-        # repeated transmissions (device retransmits call init every ~1-2s).
-        self._last_fired: dict[str, float] = {}
+        self._last_fired: dict[tuple[str, int], float] = {}
         self._dedup_window: float = 10.0  # seconds
         # Tracks the last device timestamp seen per (prefix, action) pair so
         # we can detect retransmits: if the device resends the same message
@@ -428,7 +424,7 @@ class VipEventListener:
                 except Exception:
                     _LOGGER.exception("Error in inbound ring callback")
             else:
-                self._fire_event("ring", addresses)
+                self._fire_event("ring", addresses, ring_ts)
             return
 
         # 0x1860 = VIP FSM event. Action encodes the event subtype — see ACTION_* constants.
@@ -441,13 +437,13 @@ class VipEventListener:
             )
             if action == ACTION_IN_ALERTING:
                 # IN_ALERTING: someone rang the doorbell
-                self._fire_event("ring", addresses)
+                self._fire_event("ring", addresses, msg["timestamp"])
             elif action == ACTION_CONNECTED:
                 # CONNECTED: call was answered
                 pass
             elif action == ACTION_DOOR_OPENED:
                 # OUT_INITIATED / door opened (confirmed by testing)
-                self._fire_event("door_opened", addresses)
+                self._fire_event("door_opened", addresses, msg["timestamp"])
             elif action == ACTION_OUT_ALERTING:
                 # OUT_ALERTING: outgoing call is ringing
                 pass
@@ -462,12 +458,10 @@ class VipEventListener:
             return
 
         # 0x1840/0x0000 (idle) is the device's ring-timeout / call-teardown
-        # signal. The coordinator decides whether it means a missed call
-        # (recent unanswered ring, no active video) — state that must
-        # survive listener recreation lives there, not here.
+        # signal. The coordinator matches it to the current ring.
         if prefix == PREFIX_VIDEO_EVENT and action == ACTION_IDLE and self._on_call_idle is not None:
             try:
-                self._on_call_idle(addresses)
+                self._on_call_idle(addresses, msg["timestamp"])
             except Exception:
                 _LOGGER.exception("Error in call-idle callback")
             return
@@ -493,13 +487,17 @@ class VipEventListener:
             return str(self._config.apt_address)
         return addresses[0] if addresses else ""
 
-    def _fire_event(self, event_type: str, addresses: list[str]) -> None:
+    def _fire_event(self, event_type: str, addresses: list[str], ctpp_ts: int) -> None:
         """Create and dispatch a PushEvent, deduplicating rapid retransmissions."""
         now = time.time()
-        if now - self._last_fired.get(event_type, 0.0) < self._dedup_window:
+        key = (event_type, ctpp_ts)
+        self._last_fired = {
+            event: fired_at for event, fired_at in self._last_fired.items() if now - fired_at < self._dedup_window
+        }
+        if key in self._last_fired:
             _LOGGER.debug("VIP: suppressing duplicate %s event", event_type)
             return
-        self._last_fired[event_type] = now
+        self._last_fired[key] = now
         _LOGGER.info("VIP: firing %s event (addrs=%s)", event_type, addresses)
 
         caller = addresses[0] if addresses else ""
@@ -507,7 +505,7 @@ class VipEventListener:
             event_type=event_type,
             apt_address=caller,
             timestamp=now,
-            raw={"source": "ctpp_vip", "addresses": addresses},
+            raw={"source": "ctpp_vip", "addresses": addresses, "ctpp_ts": ctpp_ts},
         )
         try:
             self._callback(event)
