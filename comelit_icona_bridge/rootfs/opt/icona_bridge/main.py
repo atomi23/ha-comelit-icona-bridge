@@ -101,6 +101,7 @@ class IconaBridgeService:
         self._connected = False
         self.last_error: str | None = None
         self._events: deque[dict[str, Any]] = deque(maxlen=50)
+        self._recent_inbound_rings: deque[tuple[str, int]] = deque(maxlen=50)
         self._ringing = False
         self._last_ring: dict[str, Any] | None = None
         self._pending_inbound: tuple[str, int] | None = None  # entrance, ring_ts
@@ -243,14 +244,7 @@ class IconaBridgeService:
                 }
 
         def _on_inbound_ring(entrance_addr: str, ring_ts: int) -> None:
-            self._pending_inbound = (entrance_addr, ring_ts)
-            self._ringing = True
-            self._last_ring = {
-                "ts": time.time(),
-                "ring_ts": ring_ts,
-                "entrance": entrance_addr,
-            }
-            self._record_event("ring", entrance=entrance_addr, ring_ts=ring_ts)
+            self._publish_inbound_ring(entrance_addr, ring_ts)
             if self.auto_start_on_ring and (self._ring_task is None or self._ring_task.done()):
                 self._ring_task = asyncio.create_task(self._auto_inbound(entrance_addr, ring_ts))
 
@@ -436,10 +430,18 @@ class IconaBridgeService:
             return {"ok": True, **self.status}
 
     def _on_mid_call_ring(self, entrance_addr: str, ring_ts: int) -> None:
-        self._pending_inbound = (entrance_addr, ring_ts)
+        self._publish_inbound_ring(entrance_addr, ring_ts, mid_call=True)
+
+    def _publish_inbound_ring(self, entrance_addr: str, ring_ts: int, *, mid_call: bool = False) -> None:
+        ring = (entrance_addr, ring_ts)
+        if ring in self._recent_inbound_rings:
+            return
+        self._recent_inbound_rings.append(ring)
+        self._pending_inbound = ring
         self._ringing = True
         self._last_ring = {"ts": time.time(), "ring_ts": ring_ts, "entrance": entrance_addr}
-        self._record_event("ring", entrance=entrance_addr, ring_ts=ring_ts, mid_call=True)
+        extra = {"mid_call": True} if mid_call else {}
+        self._record_event("ring", entrance=entrance_addr, ring_ts=ring_ts, **extra)
 
     def _on_call_end(self, session: VideoCallSession) -> None:
         asyncio.create_task(self._finish_session(session))
