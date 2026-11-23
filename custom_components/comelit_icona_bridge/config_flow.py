@@ -83,37 +83,39 @@ def _rtsp_for_api(api_url: str, status: dict | None = None) -> str:
     return f"rtsp://{host}:{port}/{DEFAULT_RTSP_PATH}"
 
 
-async def _probe_status(hass: HomeAssistant, api_url: str) -> dict | None:
-    """Return the status object when GET {api_url}/status succeeds."""
+async def _probe_status(
+    hass: HomeAssistant, api_url: str, *, timeout: float
+) -> dict | None:
+    """Return a bridge status response even if the panel is disconnected."""
     session = async_get_clientsession(hass)
     url = api_url.rstrip("/") + "/status"
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
-            if resp.status >= 400:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+            if resp.status != 200:
                 return None
             status = await resp.json(content_type=None)
-            return status if isinstance(status, dict) else None
-    except Exception:  # noqa: BLE001
+    except (aiohttp.ClientError, TimeoutError, ValueError):
         return None
+
+    if (
+        isinstance(status, dict)
+        and isinstance(status.get("connected"), bool)
+        and isinstance(status.get("video_active"), bool)
+        and isinstance(status.get("rtsp_url"), str)
+    ):
+        return status
+    return None
 
 
 async def _discover_api(hass: HomeAssistant) -> tuple[str, dict] | None:
     """Probe common hosts for a live add-on control API."""
     for host in _candidate_hosts(hass):
         api_url = f"http://{host}:{DEFAULT_API_PORT}"
-        status = await _probe_status(hass, api_url)
+        status = await _probe_status(hass, api_url, timeout=2)
         if status is not None:
             _LOGGER.info("Discovered ICONA Bridge API at %s", api_url)
             return api_url, status
     return None
-
-
-async def _validate(hass: HomeAssistant, api_url: str) -> None:
-    """Reachability check against the add-on control API (raises on failure)."""
-    session = async_get_clientsession(hass)
-    url = api_url.rstrip("/") + "/status"
-    async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-        resp.raise_for_status()
 
 
 def _schema(rtsp_default: str, api_default: str) -> vol.Schema:
@@ -192,9 +194,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         await self.async_set_unique_id("comelit_icona_bridge")
         self._abort_if_unique_id_configured()
-        try:
-            await _validate(self.hass, user_input[CONF_API_URL])
-        except Exception:  # noqa: BLE001 — surface as cannot_connect
+        if await _probe_status(self.hass, user_input[CONF_API_URL], timeout=5) is None:
             errors["base"] = "cannot_connect"
             step_id = "confirm" if self._discovered else "manual"
             return self.async_show_form(
