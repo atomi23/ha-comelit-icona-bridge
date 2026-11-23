@@ -35,7 +35,7 @@ from icona.models import PushEvent
 from icona.rtsp_server import LocalRtspServer
 from icona.token import extract_token
 from icona.video_call import VideoCallSession
-from icona.vip_listener import VipEventListener
+from icona.vip_listener import VipEventListener, address_matches
 
 LOG = logging.getLogger("icona_bridge")
 
@@ -93,6 +93,7 @@ class IconaBridgeService:
         self.device_config = None
         self.rtsp: LocalRtspServer | None = None
         self.session: VideoCallSession | None = None
+        self._session_ring: tuple[str, int] | None = None
         self._vip: VipEventListener | None = None
         self._ctpp_init_ts: int = 0
         self._session_lock = asyncio.Lock()
@@ -102,10 +103,18 @@ class IconaBridgeService:
         self.last_error: str | None = None
         self._events: deque[dict[str, Any]] = deque(maxlen=50)
         self._recent_inbound_rings: deque[tuple[str, int]] = deque(maxlen=50)
-        self._ringing = False
         self._last_ring: dict[str, Any] | None = None
         self._pending_inbound: tuple[str, int] | None = None  # entrance, ring_ts
+        self._alerting: tuple[str, int] | None = None
         self._ring_task: asyncio.Task[None] | None = None
+
+    @property
+    def _current_ring(self) -> tuple[str, int] | None:
+        return self._pending_inbound or self._alerting
+
+    @property
+    def _ringing(self) -> bool:
+        return self._current_ring is not None
 
     @property
     def rtsp_url(self) -> str:
@@ -237,7 +246,8 @@ class IconaBridgeService:
         def _on_push(event: PushEvent) -> None:
             self._record_event(event.event_type, apt_address=event.apt_address)
             if event.event_type == "ring":
-                self._ringing = True
+                if self._pending_inbound is None and event.raw is not None:
+                    self._alerting = (event.apt_address, event.raw["ctpp_ts"])
                 self._last_ring = {
                     "ts": event.timestamp,
                     "apt_address": event.apt_address,
@@ -254,6 +264,7 @@ class IconaBridgeService:
             callback=_on_push,
             init_ts=self._ctpp_init_ts,
             on_inbound_ring=_on_inbound_ring,
+            on_call_idle=self._on_call_idle,
         )
         await self._vip.start()
         LOG.info("VIP listener active (doorbell rings on CTPP)")
@@ -306,6 +317,7 @@ class IconaBridgeService:
                     with contextlib.suppress(Exception):
                         await self.session.stop()
                     self.session = None
+                    self._session_ring = None
                 LOG.info("Reconnecting to ICONA panel %s:%s", self.host, self.port)
                 try:
                     await self._ensure_connected()
@@ -352,6 +364,7 @@ class IconaBridgeService:
                 await self._resume_vip()
                 raise
             self.session = session
+            self._session_ring = None
             self.last_error = None
             self._record_event("video_started", mode="outbound")
             LOG.info("Video session started → %s", self.rtsp_url)
@@ -388,6 +401,7 @@ class IconaBridgeService:
                 await self._resume_vip()
                 raise
             self.session = session
+            self._session_ring = (entrance_addr, ring_ts)
             self.last_error = None
             self._record_event("video_started", mode="inbound", entrance=entrance_addr)
             return {"ok": True, **self.status}
@@ -406,9 +420,9 @@ class IconaBridgeService:
                 # Need inbound first
                 pass
             else:
+                ring = self._session_ring or self._current_ring
                 await self.session.answer_inbound()
-                self._ringing = False
-                self._pending_inbound = None
+                self._clear_ring(ring)
                 self._record_event("answered")
                 return {"ok": True, **self.status}
 
@@ -423,9 +437,9 @@ class IconaBridgeService:
 
         async with self._session_lock:
             if self.session and self.session.active:
+                ring = self._session_ring or self._current_ring
                 await self.session.answer_inbound()
-                self._ringing = False
-                self._pending_inbound = None
+                self._clear_ring(ring)
                 self._record_event("answered")
             return {"ok": True, **self.status}
 
@@ -438,10 +452,26 @@ class IconaBridgeService:
             return
         self._recent_inbound_rings.append(ring)
         self._pending_inbound = ring
-        self._ringing = True
         self._last_ring = {"ts": time.time(), "ring_ts": ring_ts, "entrance": entrance_addr}
         extra = {"mid_call": True} if mid_call else {}
         self._record_event("ring", entrance=entrance_addr, ring_ts=ring_ts, **extra)
+
+    def _clear_ring(self, ring: tuple[str, int] | None) -> None:
+        if ring is not None and ring == self._current_ring:
+            self._pending_inbound = None
+            self._alerting = None
+
+    def _on_call_idle(self, addresses: list[str], idle_ts: int) -> None:
+        ring = self._current_ring
+        if ring is None:
+            return
+        entrance, ring_ts = ring
+        # The upper two bytes are message counters; the low two identify the CTPP session.
+        if (idle_ts & 0xFFFF) != (ring_ts & 0xFFFF):
+            return
+        if entrance and addresses and not any(address_matches(entrance, addr) for addr in addresses):
+            return
+        self._clear_ring(ring)
 
     def _on_call_end(self, session: VideoCallSession) -> None:
         asyncio.create_task(self._finish_session(session))
@@ -452,7 +482,9 @@ class IconaBridgeService:
                 return
             LOG.info("Video session ended")
             await session.stop()
+            self._clear_ring(self._session_ring)
             self.session = None
+            self._session_ring = None
             self._record_event("video_stopped")
             await self._resume_vip()
 
@@ -468,8 +500,11 @@ class IconaBridgeService:
         async with self._session_lock:
             if self.session is not None:
                 await self.session.stop()
+                self._clear_ring(self._session_ring)
                 self.session = None
-            self._ringing = False
+                self._session_ring = None
+            else:
+                self._clear_ring(self._current_ring)
             self._record_event("video_stopped")
             await self._resume_vip()
             return {"ok": True, **self.status}
