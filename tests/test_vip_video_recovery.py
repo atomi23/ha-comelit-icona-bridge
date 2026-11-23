@@ -203,6 +203,29 @@ class VipVideoRecoveryTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await api.post("/stop")).status, 200)
             await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=124)
 
+    async def test_idle_during_live_view_clears_only_its_ring(self):
+        async with TestClient(TestServer(build_app(self.service))) as api:
+            session = await self.start_successfully()
+
+            async def process_frames(*frames):
+                read_response = AsyncMock(side_effect=[*frames, asyncio.CancelledError])
+                with (
+                    patch.object(self.panel, "read_response", read_response, create=True),
+                    patch.object(self.panel, "send_binary", new_callable=AsyncMock),
+                ):
+                    await session._ctpp_monitor_loop(
+                        self.panel, self.panel.ctpp, "SB0000060", "SB100001", 0, 0, 0,
+                    )
+
+            await process_frames(call_frame(0x18C0, 0x01010002, 1), call_frame(0x1840, 0x02020001, 0))
+            status = await self.assert_ring_status(api, ringing=True, pending=True, ring_ts=0x01010002)
+            self.assertTrue(status["video_active"])
+
+            await process_frames(call_frame(0x1840, 0x02020002, 0))
+            self.assertTrue(session.active)
+            self.assertEqual((await api.post("/stop")).status, 200)
+            await self.assert_ring_status(api, ringing=False, pending=False, ring_ts=0x01010002)
+
 
 if __name__ == "__main__":
     unittest.main()

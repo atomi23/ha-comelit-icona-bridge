@@ -91,6 +91,7 @@ class VideoCallSession:
         on_call_end: Callable[[], None] | None = None,
         on_timeout: Callable[[], None] | None = None,
         on_ring: Callable[[str, int], None] | None = None,
+        on_call_idle: Callable[[list[str], int], None] | None = None,
     ) -> None:
         self._client = client
         self._config = config
@@ -102,6 +103,7 @@ class VideoCallSession:
         # while this session holds the CTPP channel (the VIP listener is
         # stopped then, so without forwarding the ring would vanish).
         self._on_ring = on_ring
+        self._on_call_idle = on_call_idle
         self._rtp_receiver: RtpReceiver | None = None
         self._rtsp_server: LocalRtspServer | None = rtsp_server
         self._timeout_task: asyncio.Task[None] | None = None
@@ -693,6 +695,8 @@ class VideoCallSession:
                                 self._on_call_end()
                             return
                     else:
+                        if action == 0x0000:
+                            self._forward_idle(resp)
                         # Keepalive (0x0000) or any other non-CALL_END 0x1840.
                         # If answer_inbound() is draining, forward to its handoff queue
                         # so it can ACK 0x000A/0x000E with the correct transform format.
@@ -770,6 +774,18 @@ class VideoCallSession:
             self._on_ring(entrance_addr, msg["timestamp"])
         except Exception:
             _LOGGER.exception("Error in mid-call ring callback")
+
+    def _forward_idle(self, data: bytes) -> None:
+        if self._on_call_idle is None:
+            return
+        from .vip_listener import parse_ctpp_message
+
+        msg = parse_ctpp_message(data)
+        if msg is not None:
+            try:
+                self._on_call_idle(msg["addresses"], msg["timestamp"])
+            except Exception:
+                _LOGGER.exception("Error in call-idle callback")
 
     async def _inline_reestablish(
         self,

@@ -357,6 +357,7 @@ class IconaBridgeService:
                 on_call_end=lambda: self._on_call_end(session),
                 on_timeout=lambda: self._on_call_end(session),
                 on_ring=self._on_mid_call_ring,
+                on_call_idle=self._on_call_idle,
             )
             try:
                 await session.start()
@@ -394,6 +395,7 @@ class IconaBridgeService:
                 on_call_end=lambda: self._on_call_end(session),
                 on_timeout=lambda: self._on_call_end(session),
                 on_ring=self._on_mid_call_ring,
+                on_call_idle=self._on_call_idle,
             )
             try:
                 await session.start_inbound(entrance_addr, ring_ts, renewal_ack_ts=renewal)
